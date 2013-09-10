@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+
+    <title>Introduction to SQLAlchemy Core</title>
+
+    <meta name="description" content="A quick overview of SQLAlchemy Core">
+    <meta name="author" content="Jason Myers">
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/night.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/tomorrow-night.css">
+
+    <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+    <script>
+      document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+
+    <div class="reveal">
+
+      <!-- Any section element inside of this container is displayed as a slide -->
+      <div class="slides">
+        <section>
+        <h1>SQLAlchemy Core</h1>
+        <h2>An Introduction</h2>
+        <p>
+        <small><a href="http://jasonamyers.com">Jason Myers</a> / <a href="http://twitter.com/jasonamyers">@jasonamyers</a></small>
+        </p>
+        <aside class="notes">Welcome, How do I describe SQLAlchemy?  Well?</aside>
+        </section>
+        <section>
+          <img src="Awesome.gif">
+          </img>
+          <aside class="notes">It has a ton of very, very useful functions and while not everything is not a nail it solves a ton of common problems for me.  Let’s talk about about how its put together.</aside>
+        </section>
+
+        <section>
+          <h2>Architecture</h2>
+          <img src="layers.png"></img>
+          <aside class="notes">The base of SQLAlchemy is the dialect and it’s handshake with the actual drivers via connection pools, the dialect along with schema introspection and typing enables us to use a python friendly SQL Expression language. All of these components are considered the Core of SQL Alchemy. Then we have a very rich ORM built on top of that foundation.  If you TL;DR that ... it’s like GIT</aside>
+          </section>
+
+          <section data-background="idea-01.jpg">
+            <aside class="notes">Much like people describe git, there is plumbing and porcelain, and both are useful depending on your needs. The ORM has some similarities to Django’s ORM, and is very useful when you have a user built model of the data.  However, both of them fall down when that isn't the case, and that's where SQLAlchemy Core really shines.</aside>
+          </section>
+
+        <section>
+          <p>pip install sqlalchemy</p>
+          <p>pip install flask-sqlalchemy</p>
+          <p>bin/paster create -t pyramid_alchemy tutorial</p>
+        <aside class="notes">In many cases you’ll just pip install SQLAlchemy. but if you’re using flask I recommend using the variant just for it and pyramid has a scaffold for SQLAlchemy as well</aside>
+        </section>
+
+        <section>
+        <pre><code>from sqlalchemy import create_engine
+engine = create_engine(
+    ‘dialect+driver://USER:PASS@HOST:PORT/DB’
+)</code></pre>
+        <aside class="notes">The first thing we need to do is setup an engine and give it the connection information, from there were ready to actually choose our adventures let’s start with the porcelain </aside>
+        </section>
+
+        <section>
+          <pre><code>from sqlalchemy import (Table, Column,
+    Integer, String, MetaData, ForeignKey)
+metadata = MetaData()
+users = Table('users', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    Column('fullname', String),
+)</code></pre>
+        <aside class="notes">It’s not like a normal class definition, but a more list a list of table columns.  The metadata is used as a catalog to provide a mapping between the actual tables and our representation of them.</aside>
+        </section>
+
+        <section>
+        <pre><code>metadata.create_all(engine)
+conn = engine.connect()</code></pre>
+        <aside class="notes">Next we tell the meta data to create our tables if they don't already exist.  NOTE: It doesn't check to make sure they are the same just that an existing table is already present.</aside>
+        </section>
+
+        <section>
+        <pre><code class="fragment">ins = users.insert().values(name='jack', fullname='Jack Bell')
+result = conn.execute(ins)</code></pre>
+<pre><code class="fragment">ins = users.insert()
+conn.execute(ins, id=2, name='wendy', fullname='Wendy McDonalds')</code></pre>
+        <aside class="notes">We can do inserts a few way. In the top two lines, we add the values to the users instance, in the bottom part we add the parameters to the query execution.</aside>
+        </section>
+
+        <section>
+        <pre><code>conn.execute(addresses.insert(), [
+    {'user_id': 1, 'email_address' : 'j@y.com'},
+    {'user_id': 1, 'email_address' : 'j@m.com'},
+])</code></pre>
+        <aside class="notes">We can also insert multiple records like above. Transactions can be manually started, but by default wrap each execute. But what if we don’t know the table structure. (Explain work and ACS for NashInclusivity)</aside>
+        </section>
+
+        <section>
+        <pre><code>def build_table(table_name):
+return Table(
+    table_name,
+    metadata,
+    autoload=True,
+    autoload_with=engine
+)</code></pre>
+        <aside class="notes">This introspection makes a table from a given engine and metadata collection.</aside>
+        </section>
+
+
+        <section>
+          <pre><code>build_table('census')
+unavailable_fields = [
+    c.name for c in t.c if isinstance(c.type, NullType)
+]</code></pre>
+          <aside class="notes">Once you build the table, it’s important to check for fields that have a null type as they can have an unexpected affect on code. NullType fields are found because a column type doesn’t match a SQLAlchemy column type in the dialect being used.</aside>
+        </section>
+
+        <section data-background="dialect.jpg">
+          <aside class="notes">in addition to column types, the dialects define sql commands, their parameters loosely they are validated by the database driver and by sending the actual command to the DB.</aside>
+        </section>
+
+        <section>
+          <ul>
+            <li>Informix</li>
+            <li>MS SQL</li>
+            <li>Oracle</li>
+            <li>Postgres</li>
+            <li>SQLite</li>
+            <li>Custom</li>
+          </ul>
+          <aside class="notes">Most common systems are covered, and customizing them is fairly easy. For example at work we use redshift, and we’ve been writing a sqlalchemy_redshift dialect. Which you can download on github. So let’s query some data...</aside>
+        </section>
+
+        <section>
+        <pre><code>class UnloadFromSelect(Executable, ClauseElement):
+
+    def __init__(self, select, bucket, access_key, secret_key):
+        self.select = select
+        self.bucket = bucket
+        self.access_key = access_key
+        self.secret_key = secret_key
+
+@compiles(UnloadFromSelect)
+def visit_unload_from_select(element, compiler, **kw):
+    return "unload ('%(query)s') to '%(bucket)s'
+        credentials 'aws_access_key_id=%(access_key)s;
+        aws_secret_access_key=%(secret_key)s' delimiter ','
+        addquotes allowoverwrite" % {
+        'query': compiler.process(element.select,
+              unload_select=True, literal_binds=True),
+        'bucket': element.bucket,
+        'access_key': element.access_key,
+        'secret_key': element.secret_key,
+    }</code></pre>
+        <aside class="notes">Here is an example of a single statement for a custom dialect. It establishes an unload from command as seen in Amazon Redshift</aside>
+        </section>
+
+        <section>
+        <pre><code>unload = UnloadFromSelect(
+    select([fields]),
+    '/'.join(['s3:/', BUCKET, filename]),
+    ACCESS_KEY,
+    SECRET_KEY
+)</code></pre>
+        <aside class="notes">Example Usage</aside>
+        </section>
+
+        <section>
+        <pre><code>unload (
+  'select * from venue where venueid in (
+        select venueid from venue order by venueid desc limit 10)'
+)
+to 's3://mybucket/venue_pipe_'
+credentials 'aws_access_key_id=ACCESS_KEY;
+  aws_secret_access_key=SECRET_KEY';</code></pre>
+        <aside class="notes">Generated Statement</aside>
+        </section>
+
+
+        <section>
+        <pre><code>s = select(
+    [
+        t.c.race,
+        t.c.factor,
+        func.sum(g.t.c.value).label('summed')
+    ], t.c.race > 0
+).where(
+    and_(
+        t.c.type == 'POVERTY',
+        t.c.value != 0
+    )
+).group_by(
+    t.c.race,
+    t.c.factor
+).order_by(
+    t.c.race,
+    t.c.factor)</code></pre>
+        <aside class="notes">so where we have a g.t is a table .c represents the columns collection, and race is the column name
+We can still use func and label here notice the different and_ in the where clause a tuple of conditions
+then simple group and order by.</aside>
+        </section>
+
+        <section>
+        <pre><code>s = select(
+    [
+        table.c.discharge_year,
+        func.count(1).label(
+            'patient_discharges'),
+        table.c.zip_code,
+    ], table.c.discharge_year.in_(years)
+).group_by(table.c.discharge_year)
+s = s.where(table.c.hospital_name == provider)
+
+if 'total_charges' not in unavailable_fields:
+    s = s.column(
+            func.sum(table.c.total_charges
+            ).label('patient_charges')
+    )
+
+s = s.group_by(table.c.zip_code)
+s = s.order_by('discharges DESC')
+
+cases = conn.execute(s).fetchall()</code></pre>
+        <aside class="notes">What’s great is we can do this a step at a time and add conditionals to create kind of a query builder. Some datasets have total_charges if they do we add those to the result.</aside>
+        </section>
+
+        <section>
+          <img src="migration.jpg"></img>
+        <aside class="notes">Okay now let’s move on to migrations.</aside>
+        </section>
+
+        <section>
+          <p>pip install alembic</p>
+        <aside class="notes"></aside>
+        </section>
+
+        <section>
+          <p>alembic init alembic</p>
+        <aside class="notes">to prepare our project for using alembic go to the project root and init alembic.</aside>
+        </section>
+
+        <section>
+          <img src="alembic.jpg"></img>
+          <aside class="notes">this creates a folder structure like show here. We need to edit alembic.ini and env.py</aside>
+        </section>
+
+        <section>
+          <img src="alembic-dir.jpg"></img>
+          <aside class="notes">and versions holds all our migrations.</aside>
+        </section>
+
+        <section>
+          <pre><code># A generic, single database configuration.
+[alembic]
+# path to migration scripts
+script_location = alembic
+# template used to generate migration files
+# file_template = %%(rev)s_%%(slug)s
+# set to 'true' to run the environment during
+# the 'revision' command, regardless of
+autogenerate
+# revision_environment = false
+sqlalchemy.url = driver://user:pass@localhost/dbname</code></pre>
+          <aside class="notes">in Alembic.ini we can define the sqlalchemy.url. I try to avoid this and leverage the sqlalchemy configuration in my application. But if you want to hard code it you can do so here.</aside>
+        </section>
+
+        <section>
+          <pre><code>from glu import db
+target_metadata = db.metadata
+def run_migrations_online():
+    alembic_config = config.get_section(config.config_ini_section)
+    from config import SQLALCHEMY_DATABASE_URI
+    alembic_config['sqlalchemy.url'] = SQLALCHEMY_DATABASE_URI
+    engine = engine_from_config(
+        alembic_config,
+        prefix='sqlalchemy.',
+        poolclass=pool.NullPool
+)</code></pre>
+          <aside class="notes">In env py, we need to import the database session and metadata for automigrations to work. Next I customize the run_migrations_online session to read the SQLALCHEMY_DATABASE_URI from my applications config file.</aside>
+        </section>
+
+        <section data-background="offtherails.jpg">
+          <aside class="notes">Okay let’s create some revisions.</aside>
+        </section>
+
+        <section>
+          <p>alembic revision -m "initial"</p>
+          <aside class="notes">I always create a base revision that has no changes I do this regardless if I’m starting from scratch or an existing database. It gives me a point to return to.</aside>
+        </section>
+
+        <section>
+          <pre><code>def upgrade():
+  op.create_table('users_to_users',
+      sa.Column('patient_user_id', sa.Integer(), nullable=False),
+      sa.Column('provider_user_id', sa.Integer(), nullable=False),
+      sa.ForeignKeyConstraint(['patient_user_id'], ['users.id'],),
+      sa.ForeignKeyConstraint(['provider_user_id'], ['users.id'],),
+      sa.PrimaryKeyConstraint('patient_user_id','provider_user_id')
+  )
+
+  op.alter_column(u'reminders', u'user_created', nullable=True)</code></pre>
+          <aside class="notes">Let’s look at an upgrade. It features several operations. You can also embed SQL code directly moves us to the new db schema.</aside>
+        </section>
+
+        <section>
+          <pre><code>def downgrade():
+  op.alter_column(u'reminders', u'user_created',
+      existing_type=mysql.TINYINT(display_width=1), nullable=False
+  )
+  op.drop_table('users_to_users')</code></pre>
+          <aside class="notes">Returns to prior state</aside>
+        </section>
+
+        <section>
+          <p>alembic upgrade head</p>
+          <aside class="notes">This upgrades us to the highest available migration.</aside>
+        </section>
+
+        <section>
+          <p>alembic revision --autogenerate -m "Added account table"</p>
+          <aside class="notes">To auto generate a migration we use a --autogenerate, and it works pretty well...</aside>
+        </section>
+
+        <section>
+          <ul>
+            <li>Table (adds/removes)</li>
+            <li>Columns (adds/removes)</li>
+            <li>Nullable changes</li>
+          </ul>
+        </section>
+
+        <section>
+          <img src="gotcha.png"></img>
+          <aside class="notes">Except...</aside>
+        </section>
+
+        <section>
+          <ul>
+            <li>Optionally: Column Type changes<br>compare_type=True</li>
+            <li>No Name changes on Columns or Table</li>
+          </ul>
+          <aside class="notes">You have to tell it to detect column type changes and it doesn’t pick up name changes.</aside>
+        </section>
+
+        <section data-background="wat.jpg">
+        </section>
+
+        <section>
+          <ul>
+            <li class="fragment">alembic current</li>
+            <li class="fragment">alembic upgrade +2</li>
+            <li class="fragment">alembic downgrade -1</li>
+            <li class="fragment">alembic upgrade ae1</li>
+            <li class="fragment">alembic upgrade 1 --sql > file.sql</li>
+            <li class="fragment">alembic history</li>
+          </ul>
+          <aside class="notes">Moving through revisions is pretty simple. alembic current shows us where we are upgrade +2 moves us forward to revisions
+          downgrade -1 moves us back one
+        upgrade ae1 moves us up to that partially matched revision
+      We can also just generate the SQL for the migration
+    Finally we can see the history of our migrations for example</aside>
+        </section>
+
+        <section>
+          <pre>2806761df139 -> 1e9831c8fa7d (head), Adding tags to ...
+2806761df139 -> 46a1d4de6e04 (head), Added timezone ...
+4f7119855daf -> 2806761df139 (branchpoint), Added Pr...
+377addf23edb -> 4f7119855daf, Added user_created to ...
+483d9a63fbf5 -> 377addf23edb, Adding claimed to user...
+464ba41d7ad8 -> 483d9a63fbf5, Adding username/passwo...
+2cfd9dc89267 -> 464ba41d7ad8, Adding Intercom.io
+d4774a3ce8 -> 2cfd9dc89267, Seperating Roles and Use...
+None -> d4774a3ce8, Base</pre>
+          <aside class="notes">Here is the history of one of my applications. You can see where I branched and heads etc</aside>
+        </section>
+
+        <section data-background="questions.jpg">
+        <h1>THE END</h1>
+        <h3>@jasonamyers</h3>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <br>
+        <h3>https://github.com/jasonamyers</h3>
+        </section>
+
+      </div>
+
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.min.js"></script>
+
+    <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+        { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+        { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+        { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+        { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+        { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+        { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+        // { src: 'plugin/leap/leap.js', async: true }
+        // { src: 'plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; } }
+        // { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+        ]
+        });
+
+      </script>
+
+    </body>
+  </html>
